@@ -45,15 +45,44 @@ def impute_missing_values(df, time_col, customer_col, time_window, columns_to_im
 # Load your data into a pandas DataFrame
 # df = pd.read_csv("your_data.csv")
 
+# Load your data into a pandas DataFrame
+# df = pd.read_csv("your_data.csv")
+
 # Specify the parameters
 time_col = "time"
 customer_col = "values(customer)"
 time_window = timedelta(minutes=10)  # 10-minute time window
 columns_to_impute = ["values(TMX_device_id)", "values(TMX_device_id_confidence)", 
-                     "values(TMX_device_match_result)", "values(TMX_device_result)"]
+                     "values(TMX_device_match_result)"] # Removed 'values(TMX_device_result)'
 
 # Impute missing values
-df_imputed = impute_missing_values(df, time_col, customer_col, time_window, columns_to_impute)
+df_imputed = impute_missing_values(toy_df, time_col, customer_col, time_window, columns_to_impute)
 
 # Save or inspect the output
 # df_imputed.to_csv("imputed_data.csv", index=False)
+
+
+import pandas as pd
+from datetime import datetime, timedelta
+
+# Create toy data
+toy_data = {
+    "time": [
+        datetime(2024, 12, 10, 8, 0, 0) + timedelta(minutes=i) for i in range(20)
+    ],
+    "values(customer)": ["cust1"] * 10 + ["cust2"] * 10,
+    "values(TMX_device_id)": [None, "id1", None, "id1", None, None, "id1", None, "id1", None] +
+                              [None, "id2", None, "id2", None, None, "id2", None, None, "id2"],
+    "values(TMX_device_id_confidence)": [100, None, 100, None, None, 100, None, 100, None, None] +
+                                        [100, None, 100, None, None, 100, None, 100, None, None],
+    "values(TMX_device_match_result)": ["new_device", None, "new_device", None, None, "new_device", None, "new_device", None, None] +
+                                       [None, "old_device", None, "old_device", None, None, "old_device", None, None, "old_device"]
+}
+
+# Convert to DataFrame
+toy_df = pd.DataFrame(toy_data)
+
+# Shuffle rows to simulate realistic unsorted data
+toy_df = toy_df.sample(frac=1).reset_index(drop=True)
+
+print(toy_df)
