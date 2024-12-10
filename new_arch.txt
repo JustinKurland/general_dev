@@ -1,0 +1,26 @@
+graph TD
+    subgraph Ingestion
+        A[RSS Feed Parser] -->|Fetch URLs| B[PDF Processor]
+    end
+
+    subgraph Embedding
+        B -->|Generate embeddings| C[Embedding Model]
+        C -->|Store embeddings| D[Vector Database]
+    end
+
+    subgraph Similarity Search
+        C -->|Query database| E[Similarity Evaluator]
+        E -->|Is Similar?| F{Threshold Exceeded?}
+        F -->|Yes| G[Reference Existing Classification]
+        F -->|No| H[Downstream Classifier]
+    end
+
+    subgraph Classification
+        H -->|Classify TTPs| I[MITRE ATT&CK Mapper]
+        I -->|Store classifications| D
+    end
+
+    subgraph Query Generation
+        G --> J[Kestrel Query Builder]
+        I --> J
+    end
