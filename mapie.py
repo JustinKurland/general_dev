@@ -1,51 +1,59 @@
-# Import the necessary modules
-from mapie.classification import MapieClassifier
-from mapie.metrics import classification_coverage_score
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
+from mapie.estimators import MapieClassifier
+from mapie.conformity_scores import AbsoluteConformityScore
 
-# Reuse the calibrated CatBoost model and test data
-# Make sure the `model` is the best-calibrated CatBoostClassifier, and the test data is already defined
-# `X_test_selected` is your test dataset features
-# `y_test` is the true labels for the test set
+# Step 1: Create a Pool for the calibration set
+calib_pool = Pool(
+    data=X_calib_selected,
+    label=y_calib,
+    cat_features=updated_cat_features,
+    text_features=updated_text_features,
+    feature_names=list(X_calib_selected.columns),
+)
 
-# Initialize MapieClassifier with the calibrated model
-mapie = MapieClassifier(estimator=model, method="naive", cv="prefit")
+# Step 2: Predict calibrated probabilities on the calibration set
+y_calib_pred_uncalib = model.predict_proba(calib_pool)[:, 1]
+y_calib_pred_calib = beta_calibrator.predict(y_calib_pred_uncalib.reshape(-1, 1))
 
-# Fit Mapie on the training data
-mapie.fit(X_train_selected, y_train)
+# Step 3: Compute nonconformity scores on the calibration set
+calib_nonconformity_scores = np.abs(y_calib - y_calib_pred_calib)
 
-# Generate prediction intervals
-alpha = 0.1  # Significance level
-y_pred_mapie, y_pis_mapie = mapie.predict(X_test_selected, alpha=alpha)
+# Step 4: Compute quantile threshold for desired significance level
+alpha = 0.1  # Change as needed
+quantile = np.quantile(calib_nonconformity_scores, 1 - alpha)
 
-# Convert prediction intervals into a dataframe
-test_prediction_intervals_mapie = pd.DataFrame({
-    "Lower Bound": y_pis_mapie[:, 0],
-    "Upper Bound": y_pis_mapie[:, 1],
-    "Predicted Probability": y_pred_mapie[:, 1],  # Positive class probabilities
+# Step 5: Predict on the test set
+test_pool = Pool(
+    data=X_test_selected,
+    label=y_test,
+    cat_features=updated_cat_features,
+    text_features=updated_text_features,
+    feature_names=list(X_test_selected.columns),
+)
+
+y_test_pred_uncalib = model.predict_proba(test_pool)[:, 1]
+y_test_pred_calib = beta_calibrator.predict(y_test_pred_uncalib.reshape(-1, 1))
+
+# Step 6: Construct prediction intervals on the test set
+test_prediction_intervals = pd.DataFrame({
+    "Lower Bound": np.maximum(0, y_test_pred_calib - quantile),
+    "Upper Bound": np.minimum(1, y_test_pred_calib + quantile),
+    "Predicted Probability": y_test_pred_calib,
     "True Label": y_test,
-    "Within Interval": (y_test >= y_pis_mapie[:, 0]) & (y_test <= y_pis_mapie[:, 1])
+    "Within Interval": (y_test >= np.maximum(0, y_test_pred_calib - quantile)) &
+                       (y_test <= np.minimum(1, y_test_pred_calib + quantile))
 })
 
-# Evaluate the Conformal Prediction Performance
-coverage = classification_coverage_score(y_test, y_pis_mapie[:, 0], y_pis_mapie[:, 1])
-average_width = (y_pis_mapie[:, 1] - y_pis_mapie[:, 0]).mean()
+# Display summary statistics
+coverage = test_prediction_intervals["Within Interval"].mean()
+average_width = (test_prediction_intervals["Upper Bound"] - test_prediction_intervals["Lower Bound"]).mean()
 
 print(f"Interval Coverage: {coverage:.4f}")
 print(f"Average Interval Width: {average_width:.4f}")
 
-# Visualize Prediction Intervals
-plt.figure(figsize=(10, 6))
-plt.plot(range(len(test_prediction_intervals_mapie)), test_prediction_intervals_mapie["Predicted Probability"], label="Predicted Probability", color="#0E4978")
-plt.fill_between(range(len(test_prediction_intervals_mapie)), 
-                 test_prediction_intervals_mapie["Lower Bound"], 
-                 test_prediction_intervals_mapie["Upper Bound"], 
-                 color="#FFB81C", alpha=0.3, label="Prediction Interval")
-plt.scatter(range(len(test_prediction_intervals_mapie)), test_prediction_intervals_mapie["True Label"], color="red", label="True Label", s=10)
-plt.xlabel("Sample Index")
-plt.ylabel("Probability")
-plt.title("Prediction Intervals and True Labels")
-plt.legend()
+# Visualize interval width distribution
+plt.figure(figsize=(8, 6))
+plt.hist(test_prediction_intervals["Upper Bound"] - test_prediction_intervals["Lower Bound"], bins=30, color="#0E4978", alpha=0.7)
+plt.title("Distribution of Interval Widths", fontsize=14)
+plt.xlabel("Interval Width", fontsize=12)
+plt.ylabel("Frequency", fontsize=12)
 plt.show()
