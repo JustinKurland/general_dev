@@ -69,7 +69,12 @@ Ordered Target Encoding: For high-cardinality categorical features (those with m
 
 Slide 10: 
 
-Ordered Target Encoding: For high-cardinality categorical features (those with more than 5 categories), we applied ordered target encoding. This technique creates a numerical representation of each category based on the average target value for that category, providing a powerful signal for the model while mitigating potential overfitting. This approach is particularly useful when dealing with categorical data, a common challenge for data scientists."
+This slide shows how we handle the challenge of using unstructured text data, such as descriptions, summaries, and notes. We convert this text into numerical vectors called embeddings using a specialized model.
+
+For example, the phrase "GS Users using Box for Collaboration" is transformed into a series of numbers like 0.6, 0.5, 0.1, and so on. These numbers capture the meaning and context of the text, allowing the model to understand and use this information during training and prediction.
+
+In essence, embeddings turn raw text into a format that the machine learning model can effectively process and learn from.
+
 
 Slide 11: 
 
